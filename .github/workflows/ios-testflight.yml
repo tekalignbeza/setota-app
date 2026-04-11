@@ -173,11 +173,25 @@ jobs:
           EOF
           sed -i '' 's/^          //' ios/ExportOptions.plist
 
+      - name: Verify signing setup
+        run: |
+          echo "=== Available signing identities ==="
+          security find-identity -v -p codesigning
+          echo "=== Installed provisioning profiles ==="
+          ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
+          echo "=== ExportOptions.plist ==="
+          cat ios/ExportOptions.plist
+
       - name: Build iOS archive
         run: |
-          flutter build ipa \
-            --release \
-            --export-options-plist=ios/ExportOptions.plist || true
+          flutter build ios --release --no-codesign
+          echo "=== Building archive with xcodebuild ==="
+          xcodebuild -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            archive
 
       - name: Export IPA
         env:
