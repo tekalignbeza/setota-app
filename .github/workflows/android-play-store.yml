@@ -35,33 +35,48 @@ jobs:
       - name: Configure Android signing
         run: |
           if ! grep -q "signingConfigs" android/app/build.gradle.kts 2>/dev/null; then
-            # Write a Python patch script
             cat > /tmp/patch_gradle.py << 'SCRIPT'
-          import os, sys
+          import os, sys, re
           p = "android/app/build.gradle.kts"
           if not os.path.exists(p):
               sys.exit(0)
           with open(p) as f:
               c = f.read()
+
+          # Fix namespace and applicationId
           c = c.replace('namespace = "com.setota.setota_app"', 'namespace = "com.setota.app"')
           c = c.replace('applicationId = "com.setota.setota_app"', 'applicationId = "com.setota.app"')
+
+          # Add signing config
           sb = '\n    signingConfigs {\n        create("release") {\n            val keystorePath = System.getenv("KEYSTORE_PATH")\n            if (keystorePath != null) {\n                storeFile = file(keystorePath)\n                storePassword = System.getenv("KEYSTORE_PASSWORD")\n                keyAlias = System.getenv("KEY_ALIAS")\n                keyPassword = System.getenv("KEY_PASSWORD")\n            }\n        }\n    }\n'
           if "signingConfigs" not in c:
               c = c.replace("android {", "android {" + sb, 1)
               c = c.replace('signingConfig = signingConfigs.getByName("debug")', 'signingConfig = if (System.getenv("KEYSTORE_PATH") != null) signingConfigs.getByName("release") else signingConfigs.getByName("debug")')
+
           # Enable core library desugaring
           if "isCoreLibraryDesugaringEnabled" not in c:
-              c = c.replace("compileOptions {", "compileOptions {\n        isCoreLibraryDesugaringEnabled = true")
+              if "compileOptions" in c:
+                  c = c.replace("compileOptions {", "compileOptions {\n        isCoreLibraryDesugaringEnabled = true")
+              else:
+                  c = c.replace("android {", "android {\n    compileOptions {\n        isCoreLibraryDesugaringEnabled = true\n        sourceCompatibility = JavaVersion.VERSION_1_8\n        targetCompatibility = JavaVersion.VERSION_1_8\n    }\n", 1)
+
+          # Add desugaring dependency
+          if "desugar_jdk_libs" not in c:
+              if "dependencies {" in c:
+                  c = c.replace("dependencies {", 'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")')
+              else:
+                  c += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
+
           with open(p, "w") as f:
               f.write(c)
-          # Add desugaring dependency to build.gradle.kts
-          if "desugar_jdk_libs" not in c:
-              with open(p) as f:
-                  c2 = f.read()
-              c2 = c2.replace("dependencies {", 'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")')
-              with open(p, "w") as f:
-                  f.write(c2)
           print("Signing and desugaring configured")
+
+          # Debug: verify
+          with open(p) as f:
+              content = f.read()
+          print("Has signingConfigs:", "signingConfigs" in content)
+          print("Has desugaring:", "isCoreLibraryDesugaringEnabled" in content)
+          print("Has desugar_jdk_libs:", "desugar_jdk_libs" in content)
           SCRIPT
             python3 /tmp/patch_gradle.py
           else
