@@ -142,7 +142,7 @@ jobs:
               content = f.read()
 
           for line in content.split('\n'):
-              if any(k in line for k in ['CODE_SIGN', 'DEVELOPMENT_TEAM', 'PROVISIONING_PROFILE']):
+              if any(k in line for k in ['CODE_SIGN', 'DEVELOPMENT_TEAM', 'PROVISIONING_PROFILE', 'DevelopmentTeam', 'ProvisioningStyle']):
                   print(f"BEFORE: {line.strip()}")
 
           content = re.sub(
@@ -162,6 +162,13 @@ jobs:
 
           content = re.sub(r'ProvisioningStyle = Automatic;', 'ProvisioningStyle = Manual;', content)
 
+          # Add DevelopmentTeam to TargetAttributes (camelCase, separate from DEVELOPMENT_TEAM in buildSettings)
+          if 'DevelopmentTeam' not in content:
+              content = content.replace(
+                  'ProvisioningStyle = Manual;',
+                  'DevelopmentTeam = 47Y9DHQW7K;\n\t\t\t\t\tProvisioningStyle = Manual;'
+              )
+
           if 'PROVISIONING_PROFILE_SPECIFIER' not in content:
               content = content.replace(
                   'DEVELOPMENT_TEAM = 47Y9DHQW7K;',
@@ -179,7 +186,7 @@ jobs:
 
           with open(path) as f:
               for line in f:
-                  if any(k in line for k in ['CODE_SIGN', 'DEVELOPMENT_TEAM', 'PROVISIONING_PROFILE']):
+                  if any(k in line for k in ['CODE_SIGN', 'DEVELOPMENT_TEAM', 'PROVISIONING_PROFILE', 'DevelopmentTeam', 'ProvisioningStyle']):
                       print(f"AFTER: {line.strip()}")
           print("iOS signing configured after flutter build")
           PYEOF
@@ -191,6 +198,7 @@ jobs:
             -configuration Release \
             -sdk iphoneos \
             -archivePath build/ios/archive/Runner.xcarchive \
+            DEVELOPMENT_TEAM=47Y9DHQW7K \
             archive
 
       - name: Export IPA
