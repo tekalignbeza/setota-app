@@ -26,6 +26,54 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Create Android project files
+        run: |
+          if [ ! -d "android" ]; then
+            flutter create --platforms=android --org com.setota --project-name setota_app .
+          fi
+
+      - name: Configure Android signing
+        run: |
+          # Inject release signing config into build.gradle.kts
+          cd android/app
+          cat > /tmp/signing_patch.py << 'PYEOF'
+          import re, sys
+          with open("build.gradle.kts", "r") as f:
+              content = f.read()
+          # Skip if already configured
+          if "signingConfigs" in content:
+              print("Signing already configured")
+              sys.exit(0)
+          # Add signingConfigs block after 'android {'
+          signing = '''
+    signingConfigs {
+        create("release") {
+            val keystorePath = System.getenv("KEYSTORE_PATH")
+            if (keystorePath != null) {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
+'''
+          content = content.replace("android {\n", "android {\n" + signing, 1)
+          # Use release signing in release buildType
+          content = content.replace(
+              'signingConfig = signingConfigs.getByName("debug")',
+              'signingConfig = if (System.getenv("KEYSTORE_PATH") != null) signingConfigs.getByName("release") else signingConfigs.getByName("debug")'
+          )
+          # Set applicationId and namespace
+          content = content.replace('namespace = "com.setota.setota_app"', 'namespace = "com.setota.app"')
+          content = content.replace('applicationId = "com.setota.setota_app"', 'applicationId = "com.setota.app"')
+          with open("build.gradle.kts", "w") as f:
+              f.write(content)
+          print("Signing config injected")
+          PYEOF
+          python3 /tmp/signing_patch.py
+          cd ../..
+
       - name: Install dependencies
         run: flutter pub get
 
