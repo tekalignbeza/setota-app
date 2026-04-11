@@ -68,30 +68,20 @@ jobs:
         run: |
           flutter build ipa \
             --release \
-            --export-options-plist=ios/ExportOptions.plist || true
+            --export-options-plist=ios/ExportOptions.plist
 
-      - name: Export IPA
-        continue-on-error: true
+      - name: Upload to TestFlight
         env:
           APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
           APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
         run: |
-          if find build/ios/ipa -name "*.ipa" -print -quit 2>/dev/null | grep -q .; then
-            echo "IPA already exists from flutter build"
-          else
-            echo "Exporting IPA manually with API key auth..."
-            mkdir -p build/ios/ipa
-            xcodebuild -exportArchive \
-              -archivePath build/ios/archive/Runner.xcarchive \
-              -exportOptionsPlist ios/ExportOptions.plist \
-              -exportPath build/ios/ipa \
-              -authenticationKeyPath ~/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8 \
-              -authenticationKeyID "$APPSTORE_KEY_ID" \
-              -authenticationKeyIssuerID "$APPSTORE_ISSUER_ID" \
-              -allowProvisioningUpdates
-          fi
-          echo "=== IPA files ==="
-          find build/ios/ipa -name "*.ipa" -ls
+          IPA_PATH=$(find build/ios/ipa -name "*.ipa" -print -quit)
+          echo "Uploading $IPA_PATH to TestFlight..."
+          xcrun altool --upload-app \
+            -f "$IPA_PATH" \
+            -t ios \
+            --apiKey "$APPSTORE_KEY_ID" \
+            --apiIssuer "$APPSTORE_ISSUER_ID"
 
       - name: Clean up keychain
         if: ${{ always() }}

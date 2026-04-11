@@ -48,7 +48,7 @@ app.*.map.json
 *.mocks.dart
 
 # Environment
-.env.production
+# .env.production is needed at build time (referenced in pubspec.yaml assets)
 
 # Platform specific
 /android/
