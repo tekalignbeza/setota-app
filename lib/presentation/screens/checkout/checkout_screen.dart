@@ -63,57 +63,49 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         // ── Delivery Address ──
                         _SectionTitle(icon: Icons.location_on, title: 'Delivery Address'),
                         const SizedBox(height: 8),
-                        defaultAddress.when(
-                          data: (addr) {
-                            if (addr == null) {
-                              return _ActionCard(
-                                icon: Icons.add_location_alt,
-                                label: 'Add Delivery Address',
-                                onTap: () => context.push('/addresses/add'),
-                              );
-                            }
-                            return Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: AppColors.surface,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppColors.borderLight),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(_labelIcon(addr.label),
-                                      color: AppColors.primary),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(addr.label,
-                                            style: AppTextStyles.body2.copyWith(
-                                                fontWeight: FontWeight.w600)),
-                                        Text(
-                                          '${addr.street}${addr.apartment != null ? ', ${addr.apartment}' : ''}, ${addr.city}',
-                                          style: AppTextStyles.caption,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  TextButton(
-                                    onPressed: () => context.push('/addresses'),
-                                    child: const Text('Change'),
-                                  ),
-                                ],
-                              ),
+                        Builder(builder: (context) {
+                          final addr = defaultAddress;
+                          if (addr == null) {
+                            return _ActionCard(
+                              icon: Icons.add_location_alt,
+                              label: 'Add Delivery Address',
+                              onTap: () => context.push('/addresses/add'),
                             );
-                          },
-                          loading: () => const Center(
-                              child: CircularProgressIndicator()),
-                          error: (_, __) => _ActionCard(
-                            icon: Icons.add_location_alt,
-                            label: 'Add Delivery Address',
-                            onTap: () => context.push('/addresses/add'),
-                          ),
-                        ),
+                          }
+                          return Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.borderLight),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(_labelIcon(addr.label),
+                                    color: AppColors.primary),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(addr.label,
+                                          style: AppTextStyles.body2.copyWith(
+                                              fontWeight: FontWeight.w600)),
+                                      Text(
+                                        '${addr.street}${addr.apartment != null ? ', ${addr.apartment}' : ''}, ${addr.city}',
+                                        style: AppTextStyles.caption,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () => context.push('/addresses'),
+                                  child: const Text('Change'),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
                         const SizedBox(height: 20),
 
                         // ── Delivery Type ──

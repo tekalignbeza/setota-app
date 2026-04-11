@@ -21,7 +21,7 @@ class _ProductReviewsScreenState extends ConsumerState<ProductReviewsScreen> {
   @override
   Widget build(BuildContext context) {
     final reviewsAsync = ref.watch(productReviewsProvider(widget.productId));
-    final summaryAsync = ref.watch(reviewSummaryProvider(widget.productId));
+    final summaryAsync = ref.watch(reviewSummaryProvider((entityType: 'PRODUCT', entityId: widget.productId)));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Reviews')),

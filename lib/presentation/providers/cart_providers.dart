@@ -7,61 +7,94 @@ final cartRepositoryProvider = Provider<CartRepository>((ref) {
   return CartRepository(dio: ref.read(dioProvider));
 });
 
-class CartNotifier extends StateNotifier<AsyncValue<CartModel>> {
+class CartNotifier extends StateNotifier<CartModel> {
   final CartRepository _repository;
-  CartNotifier(this._repository) : super(const AsyncValue.data(CartModel()));
+  CartNotifier(this._repository) : super(const CartModel());
 
   Future<void> loadCart() async {
-    state = const AsyncValue.loading();
     try {
       final cart = await _repository.getCart();
-      state = AsyncValue.data(cart);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      state = cart;
+    } catch (_) {
+      // keep current state on error
     }
   }
 
   Future<void> addToCart({required String productId, int quantity = 1, String? specialInstructions, String? giftMessage, bool isAnonymous = false}) async {
     try {
       final cart = await _repository.addToCart(productId: productId, quantity: quantity, specialInstructions: specialInstructions, giftMessage: giftMessage, isAnonymous: isAnonymous);
-      state = AsyncValue.data(cart);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      state = cart;
+    } catch (_) {}
+  }
+
+  /// Alias used by screens
+  void addItem(CartItem item) {
+    final existing = state.items.indexWhere((i) => i.product.id == item.product.id);
+    if (existing >= 0) {
+      final updated = List<CartItem>.from(state.items);
+      updated[existing] = item.copyWith(quantity: updated[existing].quantity + item.quantity);
+      state = state.copyWith(items: updated);
+    } else {
+      state = state.copyWith(items: [...state.items, item]);
     }
   }
 
-  Future<void> updateQuantity({required String productId, required int quantity}) async {
-    try {
-      final cart = await _repository.updateCartItem(productId: productId, quantity: quantity);
-      state = AsyncValue.data(cart);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    }
+  /// Alias used by screens
+  void removeItem(String productId) {
+    state = state.copyWith(items: state.items.where((i) => i.product.id != productId).toList());
+  }
+
+  void updateQuantity(String productId, int quantity) {
+    final updated = state.items.map((i) {
+      if (i.product.id == productId) return i.copyWith(quantity: quantity);
+      return i;
+    }).toList();
+    state = state.copyWith(items: updated);
+  }
+
+  void updateGiftMessage(String productId, String message) {
+    final updated = state.items.map((i) {
+      if (i.product.id == productId) return i.copyWith(giftMessage: message);
+      return i;
+    }).toList();
+    state = state.copyWith(items: updated);
+  }
+
+  void toggleAnonymous(String productId, bool value) {
+    final updated = state.items.map((i) {
+      if (i.product.id == productId) return i.copyWith(isAnonymous: value);
+      return i;
+    }).toList();
+    state = state.copyWith(items: updated);
+  }
+
+  void updateInstructions(String productId, String text) {
+    final updated = state.items.map((i) {
+      if (i.product.id == productId) return i.copyWith(specialInstructions: text);
+      return i;
+    }).toList();
+    state = state.copyWith(items: updated);
   }
 
   Future<void> removeFromCart(String productId) async {
     try {
       final cart = await _repository.removeFromCart(productId);
-      state = AsyncValue.data(cart);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    }
+      state = cart;
+    } catch (_) {}
   }
 
   Future<void> clearCart() async {
     try {
       await _repository.clearCart();
-      state = const AsyncValue.data(CartModel());
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    }
+      state = const CartModel();
+    } catch (_) {}
   }
 }
 
-final cartProvider = StateNotifierProvider<CartNotifier, AsyncValue<CartModel>>((ref) {
+final cartProvider = StateNotifierProvider<CartNotifier, CartModel>((ref) {
   return CartNotifier(ref.read(cartRepositoryProvider));
 });
 
 final cartItemCountProvider = Provider<int>((ref) {
-  return ref.watch(cartProvider).whenOrNull(data: (cart) => cart.itemCount) ?? 0;
+  return ref.watch(cartProvider).itemCount;
 });

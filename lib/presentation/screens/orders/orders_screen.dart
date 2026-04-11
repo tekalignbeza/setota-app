@@ -38,7 +38,7 @@ class OrdersScreen extends ConsumerWidget {
 }
 
 class _OrdersList extends StatelessWidget {
-  final AutoDisposeFutureProvider<List<OrderModel>> provider;
+  final AutoDisposeProvider<AsyncValue<List<OrderModel>>> provider;
   final String emptyLabel;
   final WidgetRef ref;
   const _OrdersList({required this.provider, required this.emptyLabel, required this.ref});

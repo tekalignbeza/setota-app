@@ -29,6 +29,9 @@ class FavoritesNotifier extends StateNotifier<AsyncValue<List<ProductModel>>> {
 
   bool isFavorite(String productId) => _favoriteIds.contains(productId);
 
+  /// Alias used by screens that pass a ProductModel directly.
+  Future<void> toggle(ProductModel product) => toggleFavorite(product.id);
+
   Future<void> toggleFavorite(String productId) async {
     if (_customerId == null) return;
     try {
