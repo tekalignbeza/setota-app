@@ -32,10 +32,9 @@ jobs:
             flutter create --platforms=android --org com.setota --project-name setota_app .
           fi
 
-      - name: Configure Android signing
+      - name: Configure Android signing and desugaring
         run: |
-          if ! grep -q "signingConfigs" android/app/build.gradle.kts 2>/dev/null; then
-            cat > /tmp/patch_gradle.py << 'SCRIPT'
+          cat > /tmp/patch_gradle.py << 'SCRIPT'
           import os, sys, re
           p = "android/app/build.gradle.kts"
           if not os.path.exists(p):
@@ -78,10 +77,7 @@ jobs:
           print("Has desugaring:", "isCoreLibraryDesugaringEnabled" in content)
           print("Has desugar_jdk_libs:", "desugar_jdk_libs" in content)
           SCRIPT
-            python3 /tmp/patch_gradle.py
-          else
-            echo "Signing already configured"
-          fi
+          python3 /tmp/patch_gradle.py
 
       - name: Install dependencies
         run: flutter pub get
