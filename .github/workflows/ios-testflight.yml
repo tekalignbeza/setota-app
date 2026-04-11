@@ -82,6 +82,9 @@ jobs:
                   'CODE_SIGN_STYLE = Manual;\n\t\t\t\tDEVELOPMENT_TEAM = 47Y9DHQW7K;'
               )
 
+          # Fix TargetAttributes: remove ProvisioningStyle = Automatic
+          content = re.sub(r'ProvisioningStyle = Automatic;', 'ProvisioningStyle = Manual;', content)
+
           # Add PROVISIONING_PROFILE_SPECIFIER if not present
           if 'PROVISIONING_PROFILE_SPECIFIER' not in content:
               content = content.replace(
