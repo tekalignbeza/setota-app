@@ -47,18 +47,30 @@ jobs:
 
       - name: Configure iOS signing
         run: |
-          # Set bundle ID and manual signing in project.pbxproj
           cd ios
-          sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER = .*$/PRODUCT_BUNDLE_IDENTIFIER = com.setota.app;/g' Runner.xcodeproj/project.pbxproj
-          sed -i '' 's/CODE_SIGN_STYLE = Automatic/CODE_SIGN_STYLE = Manual/g' Runner.xcodeproj/project.pbxproj
-          # Replace any existing DEVELOPMENT_TEAM (empty or not)
-          sed -i '' 's/DEVELOPMENT_TEAM = .*$/DEVELOPMENT_TEAM = 47Y9DHQW7K;/g' Runner.xcodeproj/project.pbxproj
-          # Add CODE_SIGN_IDENTITY and PROVISIONING_PROFILE_SPECIFIER after DEVELOPMENT_TEAM lines
-          sed -i '' '/DEVELOPMENT_TEAM = 47Y9DHQW7K;/a\
-				CODE_SIGN_IDENTITY = "Apple Distribution";\
-				PROVISIONING_PROFILE_SPECIFIER = "Setota App";' Runner.xcodeproj/project.pbxproj
-          # Set minimum iOS deployment target to 15.0
-          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' Runner.xcodeproj/project.pbxproj
+          python3 << 'PYEOF'
+          import re
+          path = "Runner.xcodeproj/project.pbxproj"
+          with open(path) as f:
+              content = f.read()
+          # Set bundle ID
+          content = re.sub(r'PRODUCT_BUNDLE_IDENTIFIER = [^;]*;', 'PRODUCT_BUNDLE_IDENTIFIER = com.setota.app;', content)
+          # Set manual signing
+          content = content.replace('CODE_SIGN_STYLE = Automatic', 'CODE_SIGN_STYLE = Manual')
+          # Set team
+          content = re.sub(r'DEVELOPMENT_TEAM = [^;]*;', 'DEVELOPMENT_TEAM = 47Y9DHQW7K;', content)
+          # Add CODE_SIGN_IDENTITY and PROVISIONING_PROFILE_SPECIFIER if not present
+          if 'CODE_SIGN_IDENTITY = "Apple Distribution"' not in content:
+              content = content.replace(
+                  'DEVELOPMENT_TEAM = 47Y9DHQW7K;',
+                  'DEVELOPMENT_TEAM = 47Y9DHQW7K;\n\t\t\t\tCODE_SIGN_IDENTITY = "Apple Distribution";\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "Setota App";'
+              )
+          # Set deployment target
+          content = re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [\d.]+', 'IPHONEOS_DEPLOYMENT_TARGET = 15.0', content)
+          with open(path, 'w') as f:
+              f.write(content)
+          print("iOS signing configured successfully")
+          PYEOF
           cd ..
 
       - name: Install Apple certificate and provisioning profile
