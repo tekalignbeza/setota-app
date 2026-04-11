@@ -33,6 +33,15 @@ jobs:
       - name: Generate localizations
         run: flutter gen-l10n
 
+      - name: Create environment file
+        run: |
+          cat > .env.production << 'EOF'
+          API_BASE_URL=https://setota-emaagsasfbd6d4ec.uaenorth-01.azurewebsites.net/api/v1
+          WS_URL=wss://setota-emaagsasfbd6d4ec.uaenorth-01.azurewebsites.net/api/v1/ws/customer/websocket
+          ENVIRONMENT=production
+          EOF
+          sed -i '' 's/^          //' .env.production
+
       - name: Run code generation
         run: dart run build_runner build --delete-conflicting-outputs || true
 
