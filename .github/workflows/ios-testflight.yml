@@ -53,22 +53,42 @@ jobs:
           path = "Runner.xcodeproj/project.pbxproj"
           with open(path) as f:
               content = f.read()
+
+          # Debug: show current signing settings
+          for line in content.split('\n'):
+              if any(k in line for k in ['CODE_SIGN', 'DEVELOPMENT_TEAM', 'PROVISIONING_PROFILE']):
+                  print(f"BEFORE: {line.strip()}")
+
           # Set bundle ID
           content = re.sub(r'PRODUCT_BUNDLE_IDENTIFIER = [^;]*;', 'PRODUCT_BUNDLE_IDENTIFIER = com.setota.app;', content)
-          # Set manual signing
-          content = content.replace('CODE_SIGN_STYLE = Automatic', 'CODE_SIGN_STYLE = Manual')
-          # Set team
+          # Set manual signing (handle with or without quotes)
+          content = re.sub(r'CODE_SIGN_STYLE = \w+;', 'CODE_SIGN_STYLE = Manual;', content)
+          # Set team (handle empty quotes or any value)
           content = re.sub(r'DEVELOPMENT_TEAM = [^;]*;', 'DEVELOPMENT_TEAM = 47Y9DHQW7K;', content)
-          # Add CODE_SIGN_IDENTITY and PROVISIONING_PROFILE_SPECIFIER if not present
-          if 'CODE_SIGN_IDENTITY = "Apple Distribution"' not in content:
+
+          # Add CODE_SIGN_IDENTITY after each CODE_SIGN_STYLE = Manual if not present
+          if '"Apple Distribution"' not in content:
+              content = content.replace(
+                  'CODE_SIGN_STYLE = Manual;',
+                  'CODE_SIGN_STYLE = Manual;\n\t\t\t\tCODE_SIGN_IDENTITY = "Apple Distribution";\n\t\t\t\t"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution";'
+              )
+          if 'PROVISIONING_PROFILE_SPECIFIER' not in content:
               content = content.replace(
                   'DEVELOPMENT_TEAM = 47Y9DHQW7K;',
-                  'DEVELOPMENT_TEAM = 47Y9DHQW7K;\n\t\t\t\tCODE_SIGN_IDENTITY = "Apple Distribution";\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "Setota App";'
+                  'DEVELOPMENT_TEAM = 47Y9DHQW7K;\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "Setota App";'
               )
+
           # Set deployment target
           content = re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [\d.]+', 'IPHONEOS_DEPLOYMENT_TARGET = 15.0', content)
+
           with open(path, 'w') as f:
               f.write(content)
+
+          # Debug: show after
+          with open(path) as f:
+              for line in f:
+                  if any(k in line for k in ['CODE_SIGN', 'DEVELOPMENT_TEAM', 'PROVISIONING_PROFILE']):
+                      print(f"AFTER: {line.strip()}")
           print("iOS signing configured successfully")
           PYEOF
           cd ..
@@ -130,6 +150,7 @@ jobs:
           </dict>
           </plist>
           EOF
+          sed -i '' 's/^          //' ios/ExportOptions.plist
 
       - name: Build iOS archive
         run: |
