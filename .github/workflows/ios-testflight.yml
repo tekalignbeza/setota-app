@@ -61,21 +61,39 @@ jobs:
 
           # Set bundle ID
           content = re.sub(r'PRODUCT_BUNDLE_IDENTIFIER = [^;]*;', 'PRODUCT_BUNDLE_IDENTIFIER = com.setota.app;', content)
-          # Set manual signing (handle with or without quotes)
-          content = re.sub(r'CODE_SIGN_STYLE = \w+;', 'CODE_SIGN_STYLE = Manual;', content)
-          # Set team (handle empty quotes or any value)
-          content = re.sub(r'DEVELOPMENT_TEAM = [^;]*;', 'DEVELOPMENT_TEAM = 47Y9DHQW7K;', content)
 
-          # Add CODE_SIGN_IDENTITY after each CODE_SIGN_STYLE = Manual if not present
-          if '"Apple Distribution"' not in content:
+          # Replace all CODE_SIGN_IDENTITY lines (iPhone Developer -> Apple Distribution)
+          content = re.sub(
+              r'"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "[^"]*"',
+              '"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution"',
+              content
+          )
+
+          # Replace CODE_SIGN_STYLE everywhere
+          content = re.sub(r'CODE_SIGN_STYLE = \w+;', 'CODE_SIGN_STYLE = Manual;', content)
+
+          # Replace or add DEVELOPMENT_TEAM
+          if 'DEVELOPMENT_TEAM' in content:
+              content = re.sub(r'DEVELOPMENT_TEAM = [^;]*;', 'DEVELOPMENT_TEAM = 47Y9DHQW7K;', content)
+          else:
+              # Add DEVELOPMENT_TEAM after each CODE_SIGN_STYLE = Manual
               content = content.replace(
                   'CODE_SIGN_STYLE = Manual;',
-                  'CODE_SIGN_STYLE = Manual;\n\t\t\t\tCODE_SIGN_IDENTITY = "Apple Distribution";\n\t\t\t\t"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution";'
+                  'CODE_SIGN_STYLE = Manual;\n\t\t\t\tDEVELOPMENT_TEAM = 47Y9DHQW7K;'
               )
+
+          # Add PROVISIONING_PROFILE_SPECIFIER if not present
           if 'PROVISIONING_PROFILE_SPECIFIER' not in content:
               content = content.replace(
                   'DEVELOPMENT_TEAM = 47Y9DHQW7K;',
                   'DEVELOPMENT_TEAM = 47Y9DHQW7K;\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "Setota App";'
+              )
+
+          # Add CODE_SIGN_IDENTITY = "Apple Distribution" if not present
+          if 'CODE_SIGN_IDENTITY = "Apple Distribution"' not in content:
+              content = content.replace(
+                  'CODE_SIGN_STYLE = Manual;',
+                  'CODE_SIGN_STYLE = Manual;\n\t\t\t\tCODE_SIGN_IDENTITY = "Apple Distribution";'
               )
 
           # Set deployment target
