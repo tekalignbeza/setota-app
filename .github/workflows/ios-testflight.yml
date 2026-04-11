@@ -142,9 +142,10 @@ jobs:
               content = f.read()
 
           for line in content.split('\n'):
-              if any(k in line for k in ['CODE_SIGN', 'DEVELOPMENT_TEAM', 'PROVISIONING_PROFILE', 'DevelopmentTeam', 'ProvisioningStyle']):
+              if any(k in line for k in ['CODE_SIGN', 'DEVELOPMENT_TEAM', 'PROVISIONING_PROFILE', 'DevelopmentTeam', 'ProvisioningStyle', 'TargetAttributes', 'CreatedOnToolsVersion']):
                   print(f"BEFORE: {line.strip()}")
 
+          # buildSettings: signing identity
           content = re.sub(
               r'"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "[^"]*"',
               '"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution"',
@@ -152,6 +153,7 @@ jobs:
           )
           content = re.sub(r'CODE_SIGN_STYLE = \w+;', 'CODE_SIGN_STYLE = Manual;', content)
 
+          # buildSettings: DEVELOPMENT_TEAM
           if 'DEVELOPMENT_TEAM' in content:
               content = re.sub(r'DEVELOPMENT_TEAM = [^;]*;', 'DEVELOPMENT_TEAM = 47Y9DHQW7K;', content)
           else:
@@ -160,21 +162,30 @@ jobs:
                   'CODE_SIGN_STYLE = Manual;\n\t\t\t\tDEVELOPMENT_TEAM = 47Y9DHQW7K;'
               )
 
-          content = re.sub(r'ProvisioningStyle = Automatic;', 'ProvisioningStyle = Manual;', content)
-
-          # Add DevelopmentTeam to TargetAttributes (camelCase, separate from DEVELOPMENT_TEAM in buildSettings)
-          if 'DevelopmentTeam' not in content:
-              content = content.replace(
-                  'ProvisioningStyle = Manual;',
-                  'DevelopmentTeam = 47Y9DHQW7K;\n\t\t\t\t\tProvisioningStyle = Manual;'
+          # TargetAttributes: inject DevelopmentTeam + ProvisioningStyle after CreatedOnToolsVersion
+          # This is critical - scaffolded projects have no ProvisioningStyle (defaults to Automatic)
+          if 'ProvisioningStyle' not in content:
+              content = re.sub(
+                  r'(CreatedOnToolsVersion = [^;]*;)',
+                  r'\1\n\t\t\t\t\tDevelopmentTeam = 47Y9DHQW7K;\n\t\t\t\t\tProvisioningStyle = Manual;',
+                  content
               )
+          else:
+              content = re.sub(r'ProvisioningStyle = Automatic;', 'ProvisioningStyle = Manual;', content)
+              if 'DevelopmentTeam' not in content:
+                  content = content.replace(
+                      'ProvisioningStyle = Manual;',
+                      'DevelopmentTeam = 47Y9DHQW7K;\n\t\t\t\t\tProvisioningStyle = Manual;'
+                  )
 
+          # buildSettings: provisioning profile
           if 'PROVISIONING_PROFILE_SPECIFIER' not in content:
               content = content.replace(
                   'DEVELOPMENT_TEAM = 47Y9DHQW7K;',
                   'DEVELOPMENT_TEAM = 47Y9DHQW7K;\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "Setota App";'
               )
 
+          # buildSettings: code sign identity
           if 'CODE_SIGN_IDENTITY = "Apple Distribution"' not in content:
               content = content.replace(
                   'CODE_SIGN_STYLE = Manual;',
@@ -198,7 +209,6 @@ jobs:
             -configuration Release \
             -sdk iphoneos \
             -archivePath build/ios/archive/Runner.xcarchive \
-            DEVELOPMENT_TEAM=47Y9DHQW7K \
             archive
 
       - name: Export IPA
