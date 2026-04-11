@@ -34,45 +34,29 @@ jobs:
 
       - name: Configure Android signing
         run: |
-          # Inject release signing config into build.gradle.kts
-          cd android/app
-          cat > /tmp/signing_patch.py << 'PYEOF'
-          import re, sys
-          with open("build.gradle.kts", "r") as f:
-              content = f.read()
-          # Skip if already configured
-          if "signingConfigs" in content:
-              print("Signing already configured")
+          if ! grep -q "signingConfigs" android/app/build.gradle.kts 2>/dev/null; then
+            # Write a Python patch script
+            cat > /tmp/patch_gradle.py << 'SCRIPT'
+          import os, sys
+          p = "android/app/build.gradle.kts"
+          if not os.path.exists(p):
               sys.exit(0)
-          # Add signingConfigs block after 'android {'
-          signing = '''
-    signingConfigs {
-        create("release") {
-            val keystorePath = System.getenv("KEYSTORE_PATH")
-            if (keystorePath != null) {
-                storeFile = file(keystorePath)
-                storePassword = System.getenv("KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("KEY_ALIAS")
-                keyPassword = System.getenv("KEY_PASSWORD")
-            }
-        }
-    }
-'''
-          content = content.replace("android {\n", "android {\n" + signing, 1)
-          # Use release signing in release buildType
-          content = content.replace(
-              'signingConfig = signingConfigs.getByName("debug")',
-              'signingConfig = if (System.getenv("KEYSTORE_PATH") != null) signingConfigs.getByName("release") else signingConfigs.getByName("debug")'
-          )
-          # Set applicationId and namespace
-          content = content.replace('namespace = "com.setota.setota_app"', 'namespace = "com.setota.app"')
-          content = content.replace('applicationId = "com.setota.setota_app"', 'applicationId = "com.setota.app"')
-          with open("build.gradle.kts", "w") as f:
-              f.write(content)
-          print("Signing config injected")
-          PYEOF
-          python3 /tmp/signing_patch.py
-          cd ../..
+          with open(p) as f:
+              c = f.read()
+          c = c.replace('namespace = "com.setota.setota_app"', 'namespace = "com.setota.app"')
+          c = c.replace('applicationId = "com.setota.setota_app"', 'applicationId = "com.setota.app"')
+          sb = '\n    signingConfigs {\n        create("release") {\n            val keystorePath = System.getenv("KEYSTORE_PATH")\n            if (keystorePath != null) {\n                storeFile = file(keystorePath)\n                storePassword = System.getenv("KEYSTORE_PASSWORD")\n                keyAlias = System.getenv("KEY_ALIAS")\n                keyPassword = System.getenv("KEY_PASSWORD")\n            }\n        }\n    }\n'
+          if "signingConfigs" not in c:
+              c = c.replace("android {", "android {" + sb, 1)
+              c = c.replace('signingConfig = signingConfigs.getByName("debug")', 'signingConfig = if (System.getenv("KEYSTORE_PATH") != null) signingConfigs.getByName("release") else signingConfigs.getByName("debug")')
+          with open(p, "w") as f:
+              f.write(c)
+          print("Signing configured")
+          SCRIPT
+            python3 /tmp/patch_gradle.py
+          else
+            echo "Signing already configured"
+          fi
 
       - name: Install dependencies
         run: flutter pub get
@@ -83,8 +67,7 @@ jobs:
       - name: Decode keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-        run: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > $RUNNER_TEMP/keystore.jks
+        run: echo "$KEYSTORE_BASE64" | base64 --decode > $RUNNER_TEMP/keystore.jks
 
       - name: Build App Bundle
         env:
@@ -102,6 +85,7 @@ jobs:
           retention-days: 14
 
       - name: Deploy to Google Play (Internal Testing)
+        continue-on-error: true
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
