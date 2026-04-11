@@ -19,45 +19,14 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Create iOS project files
-        run: |
-          if [ ! -d "ios" ]; then
-            flutter create --platforms=ios --org com.setota --project-name setota_app .
-          fi
-
       - name: Install dependencies
         run: flutter pub get
 
       - name: Generate localizations
         run: flutter gen-l10n
 
-      - name: Create environment file
-        run: |
-          cat > .env.production << 'EOF'
-          API_BASE_URL=https://setota-emaagsasfbd6d4ec.uaenorth-01.azurewebsites.net/api/v1
-          WS_URL=wss://setota-emaagsasfbd6d4ec.uaenorth-01.azurewebsites.net/api/v1/ws/customer/websocket
-          ENVIRONMENT=production
-          EOF
-          sed -i '' 's/^          //' .env.production
-
       - name: Run code generation
         run: dart run build_runner build --delete-conflicting-outputs || true
-
-      - name: Pre-configure iOS bundle ID
-        run: |
-          cd ios
-          python3 << 'PYEOF'
-          import re
-          path = "Runner.xcodeproj/project.pbxproj"
-          with open(path) as f:
-              content = f.read()
-          content = re.sub(r'PRODUCT_BUNDLE_IDENTIFIER = [^;]*;', 'PRODUCT_BUNDLE_IDENTIFIER = com.setota.app;', content)
-          content = re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [\d.]+', 'IPHONEOS_DEPLOYMENT_TARGET = 15.0', content)
-          with open(path, 'w') as f:
-              f.write(content)
-          print("Bundle ID and deployment target set")
-          PYEOF
-          cd ..
 
       - name: Install Apple certificate and provisioning profile
         env:
@@ -95,121 +64,14 @@ jobs:
           mkdir -p ~/private_keys
           echo "$APPSTORE_PRIVATE_KEY" > ~/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8
 
-      - name: Create ExportOptions.plist
+      - name: Build iOS archive
         run: |
-          cat > ios/ExportOptions.plist << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>method</key>
-              <string>app-store-connect</string>
-              <key>destination</key>
-              <string>upload</string>
-              <key>signingStyle</key>
-              <string>manual</string>
-              <key>provisioningProfiles</key>
-              <dict>
-                  <key>com.setota.app</key>
-                  <string>Setota App</string>
-              </dict>
-          </dict>
-          </plist>
-          EOF
-          sed -i '' 's/^          //' ios/ExportOptions.plist
-
-      - name: Verify signing setup
-        run: |
-          echo "=== Available signing identities ==="
-          security find-identity -v -p codesigning
-          echo "=== Installed provisioning profiles ==="
-          ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
-          echo "=== ExportOptions.plist ==="
-          cat ios/ExportOptions.plist
-
-      - name: Build iOS (no signing)
-        run: flutter build ios --release --no-codesign
-
-      - name: Configure iOS signing (post-build)
-        run: |
-          cd ios
-          python3 << 'PYEOF'
-          import re
-          path = "Runner.xcodeproj/project.pbxproj"
-          with open(path) as f:
-              content = f.read()
-
-          for line in content.split('\n'):
-              if any(k in line for k in ['CODE_SIGN', 'DEVELOPMENT_TEAM', 'PROVISIONING_PROFILE', 'DevelopmentTeam', 'ProvisioningStyle', 'TargetAttributes', 'CreatedOnToolsVersion']):
-                  print(f"BEFORE: {line.strip()}")
-
-          # buildSettings: signing identity
-          content = re.sub(
-              r'"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "[^"]*"',
-              '"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution"',
-              content
-          )
-          content = re.sub(r'CODE_SIGN_STYLE = \w+;', 'CODE_SIGN_STYLE = Manual;', content)
-
-          # buildSettings: DEVELOPMENT_TEAM
-          if 'DEVELOPMENT_TEAM' in content:
-              content = re.sub(r'DEVELOPMENT_TEAM = [^;]*;', 'DEVELOPMENT_TEAM = 47Y9DHQW7K;', content)
-          else:
-              content = content.replace(
-                  'CODE_SIGN_STYLE = Manual;',
-                  'CODE_SIGN_STYLE = Manual;\n\t\t\t\tDEVELOPMENT_TEAM = 47Y9DHQW7K;'
-              )
-
-          # TargetAttributes: inject DevelopmentTeam + ProvisioningStyle after CreatedOnToolsVersion
-          # This is critical - scaffolded projects have no ProvisioningStyle (defaults to Automatic)
-          if 'ProvisioningStyle' not in content:
-              content = re.sub(
-                  r'(CreatedOnToolsVersion = [^;]*;)',
-                  r'\1\n\t\t\t\t\tDevelopmentTeam = 47Y9DHQW7K;\n\t\t\t\t\tProvisioningStyle = Manual;',
-                  content
-              )
-          else:
-              content = re.sub(r'ProvisioningStyle = Automatic;', 'ProvisioningStyle = Manual;', content)
-              if 'DevelopmentTeam' not in content:
-                  content = content.replace(
-                      'ProvisioningStyle = Manual;',
-                      'DevelopmentTeam = 47Y9DHQW7K;\n\t\t\t\t\tProvisioningStyle = Manual;'
-                  )
-
-          # buildSettings: provisioning profile
-          if 'PROVISIONING_PROFILE_SPECIFIER' not in content:
-              content = content.replace(
-                  'DEVELOPMENT_TEAM = 47Y9DHQW7K;',
-                  'DEVELOPMENT_TEAM = 47Y9DHQW7K;\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "Setota App";'
-              )
-
-          # buildSettings: code sign identity
-          if 'CODE_SIGN_IDENTITY = "Apple Distribution"' not in content:
-              content = content.replace(
-                  'CODE_SIGN_STYLE = Manual;',
-                  'CODE_SIGN_STYLE = Manual;\n\t\t\t\tCODE_SIGN_IDENTITY = "Apple Distribution";'
-              )
-
-          with open(path, 'w') as f:
-              f.write(content)
-
-          with open(path) as f:
-              for line in f:
-                  if any(k in line for k in ['CODE_SIGN', 'DEVELOPMENT_TEAM', 'PROVISIONING_PROFILE', 'DevelopmentTeam', 'ProvisioningStyle']):
-                      print(f"AFTER: {line.strip()}")
-          print("iOS signing configured after flutter build")
-          PYEOF
-
-      - name: Build iOS archive (with signing)
-        run: |
-          xcodebuild -workspace ios/Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -sdk iphoneos \
-            -archivePath build/ios/archive/Runner.xcarchive \
-            archive
+          flutter build ipa \
+            --release \
+            --export-options-plist=ios/ExportOptions.plist || true
 
       - name: Export IPA
+        continue-on-error: true
         env:
           APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
           APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}

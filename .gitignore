@@ -51,7 +51,6 @@ app.*.map.json
 .env.production
 
 # Platform specific
-/ios/
 /android/
 /macos/
 /windows/
