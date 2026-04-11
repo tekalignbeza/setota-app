@@ -175,9 +175,17 @@ jobs:
 
       - name: Build iOS archive
         run: |
-          flutter build ipa \
-            --release \
-            --export-options-plist=ios/ExportOptions.plist || true
+          flutter build ios --release --no-codesign
+          xcodebuild -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            archive \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            DEVELOPMENT_TEAM=47Y9DHQW7K \
+            PROVISIONING_PROFILE_SPECIFIER="Setota App" || true
 
       - name: Export IPA
         env:
