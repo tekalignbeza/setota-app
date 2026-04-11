@@ -36,6 +36,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     if (authState.isAuthenticated) {
       context.go('/home');
     } else {
+      // Router handles onboarding check via redirect
       context.go('/login');
     }
   }
