@@ -42,7 +42,14 @@ jobs:
           cd ios
           sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER = .*$/PRODUCT_BUNDLE_IDENTIFIER = com.setota.app;/g' Runner.xcodeproj/project.pbxproj
           sed -i '' 's/CODE_SIGN_STYLE = Automatic/CODE_SIGN_STYLE = Manual/g' Runner.xcodeproj/project.pbxproj
-          sed -i '' 's/DEVELOPMENT_TEAM = ""/DEVELOPMENT_TEAM = 47Y9DHQW7K/g' Runner.xcodeproj/project.pbxproj
+          # Replace any existing DEVELOPMENT_TEAM (empty or not)
+          sed -i '' 's/DEVELOPMENT_TEAM = .*$/DEVELOPMENT_TEAM = 47Y9DHQW7K;/g' Runner.xcodeproj/project.pbxproj
+          # Add CODE_SIGN_IDENTITY and PROVISIONING_PROFILE_SPECIFIER after DEVELOPMENT_TEAM lines
+          sed -i '' '/DEVELOPMENT_TEAM = 47Y9DHQW7K;/a\
+				CODE_SIGN_IDENTITY = "Apple Distribution";\
+				PROVISIONING_PROFILE_SPECIFIER = "Setota App";' Runner.xcodeproj/project.pbxproj
+          # Set minimum iOS deployment target to 15.0
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' Runner.xcodeproj/project.pbxproj
           cd ..
 
       - name: Install Apple certificate and provisioning profile
